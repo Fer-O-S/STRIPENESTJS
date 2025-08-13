@@ -1,0 +1,132 @@
+// Schema mínimo para prueba con Stripe
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Mantén tu modelo User existente + stripeCustomerId
+model User {
+  id Int @id @default(autoincrement())
+  name String
+  email String @unique
+  password String
+  
+  // Para Stripe
+  stripeCustomerId String? @unique
+
+  // Relaciones mínimas para Stripe
+  orders Order[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Form {
+  id       Int @id @default(autoincrement())
+  name String 
+  email String
+  message String 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Modelo de productos - basado en tu tabla existente pero mejorado
+model Product {
+  id Int @id @default(autoincrement())
+  name String
+  price Decimal @db.Decimal(10, 2)
+  currency String @default("mxn") // Ya tienes MXN en tu sistema
+  
+  // IDs de Stripe - esenciales
+  stripeProductId String? @unique
+  stripePriceId String? @unique
+  
+  // Campos básicos
+  description String?
+  isActive Boolean @default(true)
+  
+  // Relación con órdenes
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}
+
+// Órdenes - simplificado de tu modelo existente
+model Order {
+  id Int @id @default(autoincrement())
+  
+  // Relación con usuario
+  userId Int
+  user User @relation(fields: [userId], references: [id])
+  
+  // Relación con producto (simplificado - una orden = un producto)
+  productId Int
+  product Product @relation(fields: [productId], references: [id])
+  
+  // Información básica
+  quantity Int @default(1)
+  totalAmount Decimal @db.Decimal(10, 2)
+  currency String @default("mxn")
+  status OrderStatus @default(PENDING)
+  
+  // Stripe IDs - los más importantes
+  stripePaymentIntentId String? @unique
+  stripeCheckoutSessionId String?
+  paymentMethod String?
+  paidAt DateTime?
+
+  // Relación con pagos
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+// Pagos - basado en tu modelo pero mejorado
+model Payment {
+  id Int @id @default(autoincrement())
+  
+  // Relaciones
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id])
+  
+  userId Int  
+  user User @relation(fields: [userId], references: [id])
+  
+  // Stripe info - lo esencial
+  stripeChargeId String? @unique
+  amount Decimal @db.Decimal(10, 2)
+  currency String @default("mxn")
+  status PaymentStatus @default(PENDING)
+  receiptUrl String? // URL del recibo de Stripe
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+// Enums básicos
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
